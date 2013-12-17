@@ -1,0 +1,7 @@
+{
+    "name" : "Ini::Storage",
+    "version" : "0.1",
+    "description" : "store data in ini files",
+    "depends" : ["Path::Util"],
+    "source-url" : "git://github.com/jaffa4/inistorage.git"
+}
