@@ -1,21 +1,21 @@
 class Ini::Storage;
 
-use filepath;
-use dprint;
+use Path::Util;
+#use dprint;
 #save configuration settings
 
-sub new {
-  my $proto    = shift;
-  my $filename = shift;
-  my $class    = ref($proto) || $proto;
-  my $isdisk   = shift;
-  my $self     = {};
+submethod BUILD($filename,$isdisk) {
+ # my $proto    = shift;
+ # my $filename = shift;
+ # my $class    = ref($proto) || $proto;
+ # my $isdisk   = shift;
+ # my $self     = {};
 
   #definitions
   my $p = filepath::getdir($filename);
   #print "filepath [$p]";
   if ( not defined $p ) {
-    $p = $ENV{USERPROFILE};
+    $p = %*ENV{USERPROFILE};
     d::w "settings", "p:$p";
     if ( defined $p ) {
    
@@ -51,27 +51,20 @@ sub new {
   return $self;
 }
 
-sub DESTROY {
-  my $this = shift;
+submethod DESTROY {
   $this->Flush;
 }
 
-sub GetFilename {
-  my $this = shift;
+method GetFilename {
   return $this->{filename};
 }
 
-sub SetFilename {
-  my $this = shift;
-  my $newfn= shift;
+method SetFilename($newfn) {
   $this->{filename}=$newfn;
   $this->{changed} = 1;
 }
 
-sub Read {
-  my $this = shift;
-  my $key  = shift;
-  my $default = shift;
+method Read($key,$default) {
   my ( $group, $entry ) = $key =~ /\/?(.+?)\/(.+)/;
   #print "XXread:$this->{hash}{$group}{$entry}\n";
   if ((not exists $this->{hash}{$group}) or
@@ -85,10 +78,7 @@ sub Read {
   }
 }
 
-sub Exchange {
- my $this = shift;
- my $key  = shift;
- my $key2  = shift;
+method Exchange($key,$key2) {
  my ( $group, $entry ) = $key =~ /\/?(.+?)\/(.+)/;
  my ( $group2, $entry2 ) = $key2 =~ /\/?(.+?)\/(.+)/;
  if (exists $this->{hash}{$group}{$entry})
@@ -104,25 +94,18 @@ sub Exchange {
  }
 }
 
-sub GetEntryName
+method GetEntryName($group,$no)
 {
-  my $this = shift;
-  my $group  = shift;
-  my $no = shift;
   $no--;
  return $this->{list}{$group}[$no];
 }
 
-sub FindRegInGroup
+method FindRegInGroup($group)
 {
-  my $this = shift;
-  my $group  = shift;
+
 }
 
-sub Write {
-  my $this  = shift;
-  my $key   = shift;
-  my $value = shift;
+method Write($key,$value) {
   my ( $group, $entry ) = $key =~ /\/?(.+?)\/(.+)/;
   my $exists = 0;
   #print "write $group $entry $value\n";
@@ -153,9 +136,7 @@ sub Write {
   $this->{changed} = 1;
 }
 
-sub Copy {
-  my $this = shift;
-  my $obj  = shift;
+method Copy($obj) {
   for ( @{ $obj->{group} } ) {
     for my $i ( @{ $obj->{list}{$_} } ) {
       $this->Write( "/$_/$i", $obj->{hash}{$_}{$i} );
@@ -163,9 +144,7 @@ sub Copy {
   }
 }
 
-sub CountEntries {
-  my $this  = shift;
-  my $group = shift;
+method CountEntries($group) {
   my $c;
   if (defined $this->{list}{$group})
   {
@@ -174,19 +153,14 @@ sub CountEntries {
   return 0;
 }
 
-sub CopyGroup {
-  my $this  = shift;
-  my $obj   = shift;
-  my $group = shift;
+method CopyGroup($obj,$group) {
   my $newgroupname = shift // $group;
   for my $i ( @{ $obj->{list}{$group} } ) {
     $this->Write( "/$newgroupname/$i", $obj->{hash}{$group}{$i} );
   }
 }
 
-sub DeleteEntry {
-  my $this = shift;
-  my $key  = shift;
+method DeleteEntry($key) {
   my ( $group, $entry ) = $key =~ /\/?(.+?)\/(.+)/;
   d::w "settings", "delete $group $entry\n";
   if ( defined $this->{hash}{$group}{$entry} ) {
@@ -208,11 +182,8 @@ sub DeleteEntry {
  # }
 }
 
-sub RenameEntry
+method RenameEntry($key,$keynew)
 {
-  my $this = shift;
-  my $key  = shift;
-  my $keynew  = shift;
   my ( $group, $entry ) = $key =~ /\/?(.+?)\/(.+)/;
   my ( $groupnew, $entrynew ) = $keynew =~ /\/?(.+?)\/(.+)/;
   d::w "settings", "rename $group $entry\n";
@@ -238,10 +209,8 @@ sub RenameEntry
 #  }
 }
 
-sub DeleteEntryFromArray
+method DeleteEntryFromArray($key)
 {
-  my $this = shift;
-  my $key  = shift;
   my ( $group, $entry ) = $key =~ /\/?(.+?)\/(.+)/;
   my ($arrayname,$no)= $entry=~ /(.+?)(\d+)$/;
   d::w "settings", "deletefromarray $group $entry $arrayname,$no\n";
@@ -263,10 +232,8 @@ sub DeleteEntryFromArray
   }
 }
 
-sub GetLastArrayIndex
+method GetLastArrayIndex($key)
 {
-  my $this = shift;
-  my $key  = shift;
  # my $array  = shift;
   my ( $group, $array ) = $key =~ /\/?(.+?)\/(.+)/;
   my $maxi=-1;
@@ -283,9 +250,7 @@ sub GetLastArrayIndex
   return $maxi;
 }
 
-sub DeleteGroup {
-  my $this = shift;
-  my $group = shift;
+method DeleteGroup($group) {
   if ( defined $this->{hash}{$group} ) {
     delete $this->{hash}{$group};
     delete $this->{list}{$group};
@@ -304,22 +269,17 @@ sub DeleteGroup {
   }
 }
 
-sub GroupExists
+method GroupExists($group)
 {
-my $this=shift;
-my $group=shift;
 if ( exists $this->{hash}{$group} ) {
     return 1;
   }
   else {
     return 0;
   }
-
 }
 
-sub Exists {
-  my $this = shift;
-  my $key  = shift;
+method Exists($key) {
   my ( $group, $entry ) = $key =~ /\/?(.+?)\/(.+)/;
   if ( exists $this->{hash}{$group} and exists $this->{hash}{$group}{$entry} ) {
     return 1;
@@ -329,23 +289,17 @@ sub Exists {
   }
 }
 
-sub GetGroups
+method GetGroups
 {
-my $this  = shift;
 return @{ $this->{group} };
 }
 
-sub GetEntriesInGroup {
-  my $this  = shift;
-  my $group = shift;
+method GetEntriesInGroup($group) {
   return $this->{hash}{$group};
 }
 
-sub FindIndexInArrayByValue {
-my $this  = shift;
-my $group = shift;
-my $arrayname = shift;
-my $value = shift;
+method FindIndexInArrayByValue($group,$arrayname,$value) {
+
 my %ref=%{$this->{hash}{$group}};
   for (keys %ref)
     {
@@ -358,12 +312,7 @@ my %ref=%{$this->{hash}{$group}};
   return -1;
 }
 
-sub FindAValueInRecordByKey {
-my $this  = shift;
-my $group = shift;
-my $arrayname = shift; #find key in this array
-my $value = shift; #
-my $arrayname2 = shift;
+method FindAValueInRecordByKey($group,$arrayname,$value,$arrayname2) {
 my $index=$this->FindIndexInArrayByValue($group,$arrayname,$value);
 return undef if ($index==-1);
 
@@ -379,9 +328,7 @@ my %ref=%{$this->{hash}{$group}};
   return undef;
 }
 
-sub GetArrayInGroupK($$) {
-my $this = shift;
-my $key  = shift;
+method GetArrayInGroupK($key) {
 my ( $group, $entry ) = $key =~ /\/?(.+?)\/(.+)/;
 return $this->GetArrayInGroupGE($group, $entry);
 }
@@ -389,10 +336,7 @@ return $this->GetArrayInGroupGE($group, $entry);
 
 
 
-sub GetArrayInGroupGE($$$) {
-  my $this  = shift;
-  my $group = shift;
-  my $name = shift;
+method GetArrayInGroupGE($group,$name) {
   my %ref=%{$this->{hash}{$group}};
   my $res;
   my @arr;
@@ -406,8 +350,7 @@ sub GetArrayInGroupGE($$$) {
   return \@arr;
 }
 
-sub SetArrayInGroup ($$$$) {
-  my $this  = shift;
+method SetArrayInGroup ($group,$name,$arr) {
   my $group = shift;
   my $name = shift;
   my $arr= shift;
@@ -429,8 +372,7 @@ sub SetArrayInGroup ($$$$) {
 
 
 
-sub ReadFile {
-  my $this = shift;
+method ReadFile {
   my $currgroup;
   d::w "settings", "read file\n";
   if ( -e $this->{filename} ) {
@@ -469,8 +411,7 @@ sub ReadFile {
   return 1;
 }
 
-sub WriteFile {
-  my $this = shift;
+method WriteFile {
   d::w "settings", "WriteFile\n";
   open F, ">$this->{filename}" or return "fileerror";
   d::w "settings", "on\n";
@@ -490,9 +431,8 @@ sub WriteFile {
   return 1;
 }
 
-sub PrintGroup {
-my $this = shift;
-my $group = shift;
+method PrintGroup($group) {
+
   d::w "settings", "[$group]\n";
     for my $i ( @{ $this->{list}{$group} } ) {
       print  "$i=$this->{hash}{$group}{$i}\n";
@@ -500,15 +440,12 @@ my $group = shift;
 
 }
 
-sub SetDisk
+method SetDisk($disk)
 {
- my $this = shift;
- my $disk = shift;
  $this->{disk}= $disk;
 }
 
-sub Flush {
-  my $this = shift;
+method Flush {
   d::w "settings", "flush $this->{changed}\n";
   if ( $this->{disk} and $this->{changed} ) { $this->WriteFile; }
   $this->{changed} = 0;
