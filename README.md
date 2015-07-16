@@ -10,7 +10,7 @@ Key refers to "group/key" format.
 
     use Ini::Storage;
 
-    my $o = Ini::Storage.new("my.cfg",False);
+    my $o = Ini::Storage.new("my.cfg",True); # True -> read from disk immediately if it exists.
     $o.Write("g/id",7); # write section g with key id = 7
     
 
