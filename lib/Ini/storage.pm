@@ -1,10 +1,22 @@
-class Ini::Storage;
+unit class Ini::Storage;
 
 use Path::Util;
 #use dprint;
 #save configuration settings
 
-submethod BUILD($filename,$isdisk) {
+has $filename;
+
+has $disk;
+
+has $changed;
+
+has %.hash;
+
+has %.list;
+
+has @.group;
+
+method new($filename,$isdisk) {
  # my $proto    = shift;
  # my $filename = shift;
  # my $class    = ref($proto) || $proto;
@@ -12,92 +24,108 @@ submethod BUILD($filename,$isdisk) {
  # my $self     = {};
 
   #definitions
-  my $p = filepath::getdir($filename);
+  my $p = Path::Util.getdir($filename);
   #print "filepath [$p]";
+  my $fn = $filename;
   if ( not defined $p ) {
-    $p = %*ENV{USERPROFILE};
-    d::w "settings", "p:$p";
+    $p = %*ENV<USERPROFILE> // %*ENV<HOME>;
+  #  d::w "settings", "p:$p";
     if ( defined $p ) {
-   
-      $self->{filename} = $p . filepath::separator . filepath::getbasename($filename);
-     
+      $fn= $p ~ Path::Util.fsseparator ~ Path::Util.getbasename($filename); 
     }
     else {
-      $self->{filename} = $filename;
+    #  $!filename = $filename;
     }
   }
   else {
-    $self->{filename} = $filename;
+   #$!filename = $filename;
   }
-
-  if ( not defined $isdisk or $isdisk == 1 ) {
-    $self->{disk} = 1;
+  #  say "here $isdisk";
+  my $disk;
+  if ( !defined($isdisk) || $isdisk  ) {
+    $disk= 1;
   }
   else {
-    $self->{disk} = 0;
+    $disk = 0;
   }
-
-  $self->{changed} = 0;
-  bless( $self, $class );
-  if ( $self->{disk} ) {
-    my $status= $self->ReadFile;
-    if ( $status == 1 or $status == 0) {
-      return $self;
-    }
-    else {
-      return undef;
-    }
-  }
-  return $self;
+   # say "here $disk";
+ # $!changed = 0;
+  #bless( $self, $class );
+  
+ 
+  return self.bless(disk => $disk, filename => $fn, changed => 0);
+ # return $self;
 }
 
+submethod BUILD(:$disk, :$filename, :$changed) {
+        $!disk = $disk;
+        $!filename = $filename;
+        $!changed = $changed;
+        
+   if ( $disk ) {
+   # say "before";
+    my $status= self.ReadFile;
+    if ( $status == 1 or $status == 0) {
+  #    return $self;
+    }
+    else {
+   #   return undef;
+    }
+  }
+    }
+
 submethod DESTROY {
-  $this->Flush;
+  self.Flush;
 }
 
 method GetFilename {
-  return $this->{filename};
+  #say ">>>"~$!filename;
+  return $!filename;
 }
 
 method SetFilename($newfn) {
-  $this->{filename}=$newfn;
-  $this->{changed} = 1;
+  $!filename=$newfn;
+  $!changed = 1;
 }
 
 method Read($key,$default) {
-  my ( $group, $entry ) = $key =~ /\/?(.+?)\/(.+)/;
-  #print "XXread:$this->{hash}{$group}{$entry}\n";
-  if ((not exists $this->{hash}{$group}) or
-  (not  exists $this->{hash}{$group}{$entry} ))
+  $key ~~ /\/?(.+?)\/(.+)/;
+  my ( $group, $entry ) = $/[0].Str, $/[1].Str;
+  #print "XXread:%!hash{$group}{$entry}\n";
+  #say "( $group, $entry ) %!hash.EXISTS-KEY($group)) %!hash.EXISTS-KEY($entry)";
+  if ((not %!hash.EXISTS-KEY($group)) or
+  (not  %!hash{$group}.EXISTS-KEY($entry) ))
   {
     return $default;
   }
   else
   {
-    return $this->{hash}{$group}{$entry};
+    return %!hash{$group}{$entry};
   }
 }
 
 method Exchange($key,$key2) {
- my ( $group, $entry ) = $key =~ /\/?(.+?)\/(.+)/;
- my ( $group2, $entry2 ) = $key2 =~ /\/?(.+?)\/(.+)/;
- if (exists $this->{hash}{$group}{$entry})
+ $key ~~ /\/?(.+?)\/(.+)/;
+ my ( $group, $entry ) = $/[0].Str, $/[1].Str;
+ $key2 ~~ /\/?(.+?)\/(.+)/;
+ my ( $group2, $entry2 ) =  $/[0].Str, $/[1].Str;
+ if (%!hash.EXISTS-KEY($group) && %!hash{$group}.EXISTS-KEY($entry))
  {
-  my $val=$this->{hash}{$group}{$entry};
-  if (exists $this->{hash}{$group2}{$entry2})
+  my $val=%!hash{$group}{$entry};
+  if (%!hash.EXISTS-KEY($group2) && %!hash{$group2}.EXISTS-KEY($entry2))
   {
-   $val2=$this->{hash}{$group2}{$entry2};
-   $this->{hash}{$group}{$entry}=$val2;
-   $this->{hash}{$group2}{$entry2}=$val;
-   $this->{changed} = 1;
+   my $val2=%!hash{$group2}{$entry2};
+   %!hash{$group}{$entry}=$val2;
+   %!hash{$group2}{$entry2}=$val;
+   $!changed = 1;
   }
  }
 }
 
-method GetEntryName($group,$no)
+method GetEntryName($group,$no is copy)
 {
   $no--;
- return $this->{list}{$group}[$no];
+ return %!list{$group}[$no];
 }
 
 method FindRegInGroup($group)
@@ -106,144 +134,155 @@ method FindRegInGroup($group)
 }
 
 method Write($key,$value) {
-  my ( $group, $entry ) = $key =~ /\/?(.+?)\/(.+)/;
+  $key ~~ /\/?(.+?)\/(.+)/;
+  my ( $group, $entry ) = $/[0].Str, $/[1].Str;
   my $exists = 0;
   #print "write $group $entry $value\n";
   
-  for ( @{ $this->{group} } ) {
+  for ( @!group  ) {
     if ( $_ eq $group ) {
       $exists = 1;
     }
   }
   if ( not $exists ) {
-    push @{ $this->{group} }, $group;
-    d::w "settings", "another group\n";
+    push @!group , $group;
+  #  d::w "settings", "another group\n";
   }
-  if ( exists $this->{hash}{$group}{$entry} ) {
+  if ( %!hash{$group}{$entry}:exists ) {
 
-    $this->{hash}{$group}{$entry} = $value;
+    %!hash{$group}{$entry} = $value;
    #  print "hello2 write $group $entry $value\n";
   }
   else {
    # print "hello2\n";
 
-    $this->{hash}{$group}{$entry} = $value;
-    push @{ $this->{list}{$group} }, $entry;
+    %!hash{$group}{$entry} = $value;
+    %!list{$group}.push: $entry;
+   
+   # say "here $group $entry "~ %!list{$group}[0];
   }
-#  for my $i ( @{ $this->{list}{$group} } ) {
-#    print "check $i=$this->{hash}{$group}{$i}\n";
+  
+  #say "list:"~%!list.perl;
+#  for my $i ( @{ %!list{$group} } ) {
+#    print "check $i=%!hash{$group}{$i}\n";
 #  }
-  $this->{changed} = 1;
+  $!changed = 1;
 }
 
 method Copy($obj) {
-  for ( @{ $obj->{group} } ) {
-    for my $i ( @{ $obj->{list}{$_} } ) {
-      $this->Write( "/$_/$i", $obj->{hash}{$_}{$i} );
+  for ( @( $obj.group ) ) {
+    for ( @( $obj.list{$_} ) ) -> $i {
+      self.Write( "/$_/$i", $obj.hash{$_}{$i} );
     }
   }
 }
 
 method CountEntries($group) {
   my $c;
-  if (defined $this->{list}{$group})
+  if (defined %!list{$group})
   {
-    return @{ $this->{list}{$group} };
+    return +@( %!list{$group} );
   }
   return 0;
 }
 
-method CopyGroup($obj,$group) {
-  my $newgroupname = shift // $group;
-  for my $i ( @{ $obj->{list}{$group} } ) {
-    $this->Write( "/$newgroupname/$i", $obj->{hash}{$group}{$i} );
+method CopyGroup($obj,$group,$newgroupname?) {
+  $newgroupname = $newgroupname // $group;
+  for  ( @( $obj.list{$group} ) ) -> $i {
+    self.Write( "/$newgroupname/$i", $obj.hash{$group}{$i} );
   }
 }
 
 method DeleteEntry($key) {
-  my ( $group, $entry ) = $key =~ /\/?(.+?)\/(.+)/;
-  d::w "settings", "delete $group $entry\n";
-  if ( defined $this->{hash}{$group}{$entry} ) {
-    delete $this->{hash}{$group}{$entry};
+  $key ~~ /\/?(.+?)\/(.+)/;
+  my ( $group, $entry ) = $/[0].Str, $/[1].Str;
+  #d::w "settings", "delete $group $entry\n";
+  if ( defined %!hash{$group}{$entry} ) {
+    %!hash{$group}{$entry}:delete;
     my $i = 0;
-    for ( @{ $this->{list}{$group} } ) {
+    for ( @( %!list{$group} ) ) {
       if ( $_ eq $entry ) {
         last;
       }
       $i++;
     }
    
-    splice @{ $this->{list}{$group} }, $i, 1;
-    d::w "settings", "del:@{ $this->{list}{$group} } $i\n";
-    $this->{changed} = 1;
+    splice @( %!list{$group} ), $i, 1;
+   # d::w "settings", "del:@{ %!list{$group} } $i\n";
+    $!changed = 1;
   }
- # for my $i ( @{ $this->{list}{$group} } ) {
- #   print "check $i=$this->{hash}{$group}{$i}\n";
+ # for my $i ( @{ %!list{$group} } ) {
+ #   print "check $i=%!hash{$group}{$i}\n";
  # }
 }
 
 method RenameEntry($key,$keynew)
 {
-  my ( $group, $entry ) = $key =~ /\/?(.+?)\/(.+)/;
-  my ( $groupnew, $entrynew ) = $keynew =~ /\/?(.+?)\/(.+)/;
-  d::w "settings", "rename $group $entry\n";
+  $key ~~ /\/?(.+?)\/(.+)/;
+  my ( $group, $entry ) = $/[0].Str, $/[1].Str;
+  $keynew ~~ /\/?(.+?)\/(.+)/;
+  my ( $groupnew, $entrynew ) =  $/[0].Str, $/[1].Str;
+#  d::w "settings", "rename $group $entry\n";
   my $val;
-  if ( exists $this->{hash}{$group}{$entry} and not exists
-   $this->{hash}{$groupnew}{$entrynew}) {
-    $val=$this->{hash}{$group}{$entry};
-    delete $this->{hash}{$group}{$entry};
+  if ( %!hash{$group}{$entry}:exists and not 
+   %!hash{$groupnew}{$entrynew}:exists) {
+    $val=%!hash{$group}{$entry};
+    %!hash{$group}{$entry}:delete;
     my $i = 0;
-    for ( @{ $this->{list}{$group} } ) {
+    for ( @( %!list{$group} ) ) {
       if ( $_ eq $entry ) {
         last;
       }
       $i++;
     }
-    d::w "settings", "del:@{ $this->{list}{$group} } $i\n";
-    splice @{ $this->{list}{$group} }, $i, 1;
-    $this->{changed} = 1;
-    $this->Write($keynew,$val);
+   # d::w "settings", "del:@{ %!list{$group} } $i\n";
+    splice @( %!list{$group} ), $i, 1;
+    $!changed = 1;
+    self.Write($keynew,$val);
   }
-#  for my $i ( @{ $this->{list}{$group} } ) {
-#    print "check $i=$this->{hash}{$group}{$i}\n";
+#  for my $i ( @{ %!list{$group} } ) {
+#    print "check $i=%!hash{$group}{$i}\n";
 #  }
 }
 
 method DeleteEntryFromArray($key)
 {
-  my ( $group, $entry ) = $key =~ /\/?(.+?)\/(.+)/;
-  my ($arrayname,$no)= $entry=~ /(.+?)(\d+)$/;
+  $key ~~ /\/?(.+?)\/(.+)/;
+  my ( $group, $entry ) = $/[0].Str, $/[1].Str;
+  $entry~~ /(.+?)(\d+)$/;
+  my ($arrayname,$no)= $/[0].Str, $/[1].Str;
   d::w "settings", "deletefromarray $group $entry $arrayname,$no\n";
-  if (not defined $1)
+  if (not $/[0])
   {
     return;
   }
-  $this->DeleteEntry($key);
-  my @list=  @{ $this->{list}{$group} };
-  for my $i ( @list ) {
-    if ($i=~ /$arrayname(\d+)$/)
+  self.DeleteEntry($key);
+  my @list=  @( %!list{$group} );
+  for  @list -> $i {
+    if ($i~~ /$arrayname(\d+)$/)
     {
       if ($1>$no)
       {
-        $this->RenameEntry("$group/$arrayname".$1,"$group/$arrayname".($1-1));
+        self.RenameEntry("$group/$arrayname"~$/[0].Str,"$group/$arrayname"~($/[0].Str-1));
       }
     }
-    #print "check $i=$this->{hash}{$group}{$i}\n";
+    #print "check $i=%!hash{$group}{$i}\n";
   }
 }
 
 method GetLastArrayIndex($key)
 {
  # my $array  = shift;
-  my ( $group, $array ) = $key =~ /\/?(.+?)\/(.+)/;
+  $key ~~ /\/?(.+?)\/(.+)/;
+  my ( $group, $array ) = $/[0].Str, $/[1].Str;
   my $maxi=-1;
-  for ( @{ $this->{list}{$group} } ) {
+  for ( @( %!list{$group} ) ) {
         if (/^$array(\d+)$/)
         {
 
-           if ($1>$maxi)
+           if ($/[0].Str > $maxi)
            {
-             $maxi=$1;
+             $maxi=$/[0].Str;
            }
         }
   }
@@ -251,156 +290,169 @@ method GetLastArrayIndex($key)
 }
 
 method DeleteGroup($group) {
-  if ( defined $this->{hash}{$group} ) {
-    delete $this->{hash}{$group};
-    delete $this->{list}{$group};
-    $this->{changed} = 1;
+  if ( %!hash.key_exists($group) ) {
+    %!hash{$group}:delete;
+    %!list{$group}:delete;
+    $!changed = 1;
     my $i = 0;
-    for ( @{ $this->{group} } ) {
+    for  @!group  {
       if ( $_ eq $group ) {
-        splice @{ $this->{group} }, $i, 1;
+        splice  @!group, $i, 1;
         last;
       }
       $i++;
     }
- #   for my $i ( @{ $this->{list}{$group} } ) {
- #   print "check $i=$this->{hash}{$group}{$i}\n";
+ #   for my $i ( @{ %!list{$group} } ) {
+ #   print "check $i=%!hash{$group}{$i}\n";
 #  }
   }
 }
 
 method GroupExists($group)
 {
-if ( exists $this->{hash}{$group} ) {
-    return 1;
-  }
-  else {
-    return 0;
-  }
+
+return  %!hash.EXISTS-KEY($group);
+
 }
 
+
+
 method Exists($key) {
-  my ( $group, $entry ) = $key =~ /\/?(.+?)\/(.+)/;
-  if ( exists $this->{hash}{$group} and exists $this->{hash}{$group}{$entry} ) {
-    return 1;
-  }
-  else {
-    return 0;
-  }
+  $key ~~ /\/?(.+?)\/(.+)/;
+  my ( $group, $entry ) = $/[0].Str, $/[1].Str;
+  return ( %!hash.EXISTS-KEY($group) and %!hash{$group}.EXISTS-KEY($entry) ); 
 }
 
 method GetGroups
 {
-return @{ $this->{group} };
+return @!group;
 }
 
 method GetEntriesInGroup($group) {
-  return $this->{hash}{$group};
+  return %!hash{$group};
 }
 
 method FindIndexInArrayByValue($group,$arrayname,$value) {
 
-my %ref=%{$this->{hash}{$group}};
+my %ref=%(%!hash{$group});
   for (keys %ref)
     {
       if (/^($arrayname(\d+))$/)
        {
-        if ($ref{$1} eq $value)
-        { return $2;}
+        if (%ref{$/[0].Str} eq $value)
+        { return $/[0][0].Str;}
       }
     }
   return -1;
 }
 
 method FindAValueInRecordByKey($group,$arrayname,$value,$arrayname2) {
-my $index=$this->FindIndexInArrayByValue($group,$arrayname,$value);
-return undef if ($index==-1);
+my $index=self.FindIndexInArrayByValue($group,$arrayname,$value);
+return Mu if ($index==-1);
 
-my %ref=%{$this->{hash}{$group}};
-  for (keys %ref)
+my $ref=%!hash{$group};
+  for (keys %$ref)
     {
       if (/^($arrayname2(\d+))$/)
        {
-        if ($2 eq $index)
-        { return $ref{$1};}
+        if ($/[0][0].Str eq $index)
+        { return $ref{$/[0].Str};}
       }
     }
-  return undef;
+  return Mu;
 }
 
+
+
 method GetArrayInGroupK($key) {
-my ( $group, $entry ) = $key =~ /\/?(.+?)\/(.+)/;
-return $this->GetArrayInGroupGE($group, $entry);
+$key ~~ /\/?(.+?)\/(.+)/;
+my ( $group, $entry ) = $0,$1;
+return self.GetArrayInGroupGE($group, $entry);
 }
 
 
 
 
 method GetArrayInGroupGE($group,$name) {
-  my %ref=%{$this->{hash}{$group}};
+  my $ref=%!hash{$group};
   my $res;
   my @arr;
-  for (keys %ref)
+ # say "here $group "~%!hash{$group}.perl;
+  for (keys %$ref)
     {
       if (/^($name(\d+))$/)
        {
-      $arr[$2]=$ref{$1};
+      @arr[$/[0][0].Str]=$ref{$/[0].Str};
       }
     }
-  return \@arr;
+  return @arr;
 }
 
-method SetArrayInGroup ($group,$name,$arr) {
-  my $group = shift;
-  my $name = shift;
-  my $arr= shift;
-  my %ref=%{$this->{hash}{$group}};
+
+
+##`(
+
+method SetArrayInGroup ($group,$name,@arr) {
+  my $ref=%!hash{$group};
   my $res;
-  my @arr;
-  for (keys %ref)
+ # my @arr;
+  for (keys %$ref)
     {
      if (/^($name(\d+))$/)
        {
-      $this->DeleteEntry("$group/$_");
+      self.DeleteEntry("$group/$_");
       }
     }
-  for (my $i=0;$i<@{$arr};$i++)
+  #loop (my $i=0;$i<@($arr).elems;$i++)
+   for (0..@arr.end) -> $i 
   {
-  $this->Write("$group/$name$i",$$arr[$i]) if defined $$arr[$i];
+ 
+  self.Write("$group/$name$i",@arr[$i]) if defined @arr[$i];
   }
 }
 
+#)
 
 
-method ReadFile {
+method ReadFile() {
   my $currgroup;
-  d::w "settings", "read file\n";
-  if ( -e $this->{filename} ) {
-    d::w "settings", "bele $this->{filename}\n";
-    open F, "<$this->{filename}" or return "fileerror";
-    d::w "settings", "bele2 $this->{filename}\n";
-    local $/ = undef;
-    my $file = <F>;
-    close F;
-    while ( $file =~ /^\s*\[(.+?)\]/gcm ) {
-      push @{ $this->{group} }, $1;
-      $currgroup = $1;
-      d::w "settings", "bele3 $currgroup\n";
+#  d::w "settings", "read file\n";
 
+  my $f = $!filename;
+  #say "entering $f";
+  
+  
+  if ($!filename.IO ~~ :e ) {
+  #  d::w "settings", "bele $this->{filename}\n";
+  #  d::w "settings", "bele2 $this->{filename}\n";
+    my $file = slurp $!filename;
+    
+    my $p = 0;
+
+    while ( $file ~~ m:c($p)/^^\s*\[(\N+?)\]/ ) {
+      push @!group , $/[0].Str;
+      $currgroup = $/[0].Str;
+    #  d::w "settings", "bele3 $currgroup\n";
+        $p = $/.to;
       if ( defined $currgroup ) {
-        while ( $file =~ /^\s*(\w+)\s*=(.*)|^\s*\[(.+?)\]/gcm ) {
-          if ( defined $3 ) {
-            pos($file) = $-[3] - 1;
+        while ( $file ~~ m:P5:c($p)/(?m)^\s*(\w+)\s*\=(.*)|^\s*\[(.+?)\]/) {
+          if ( defined $2 ) {
+            $p = $/[2].from - 1;
             last;
           }
-          my $decoded=$2;
-          my $key=$1;
-           $decoded=~s/\\x0a/\x0a/g;
-           $decoded=~s/\\x0d/\x0d/g;
-           $decoded=~s/\\\\/\\/g;    
-          $this->{hash}{$currgroup}{$key} = $decoded;
-          d::w "settings", "$currgroup: $key $decoded\n";
-          push @{ $this->{list}{$currgroup} }, $key;
+          else
+          {
+            $p = $/.to;
+          }
+          my $decoded=$1;
+          my $key=$0;
+          #say "decoded $0 $1";
+           $decoded~~s:g/\\x0a/\x0a/;
+           $decoded~~s:g/\\x0d/\x0d/;
+           $decoded~~s:g/\\\\/\\/;    
+          %!hash{$currgroup}{$key} = $decoded;
+      #    d::w "settings", "$currgroup: $key $decoded\n";
+          push @( %!list{$currgroup} ), $key;
         }
       }
     }
@@ -408,47 +460,48 @@ method ReadFile {
   else {
     return 0;
   }
+  #say ">>>>>>"~%!list.perl;
   return 1;
 }
 
 method WriteFile {
-  d::w "settings", "WriteFile\n";
-  open F, ">$this->{filename}" or return "fileerror";
-  d::w "settings", "on\n";
-  for ( @{ $this->{group} } ) {
-    print F "[$_]\n";
-    for my $i ( @{ $this->{list}{$_} } ) {
-     my $encoded=$this->{hash}{$_}{$i};
+ # d::w "settings", "WriteFile\n";
+  my $F = open $!filename,:w or return "fileerror";
+ # d::w "settings", "on\n";
+  for ( @!group  ) {
+    print $F: "[$_]\n";
+    for @( %!list{$_} ) -> $i {
+     my $encoded=%!hash{$_}{$i};
      #$DB::single=2;
-      $encoded=~s/\\/\\\\/g;
-      $encoded=~s/\x0a/\\x0a/g;
-      $encoded=~s/\x0d/\\x0d/g;
-      print F "$i=$encoded\n";
-      d::w "settings", "WriteFile:$_ $i\n";
+      $encoded~~s:g/\\/\\\\/;
+      $encoded~~s:g/\x0a/\\x0a/;
+      $encoded~~s:g/\x0d/\\x0d/;
+      print $F: "$i=$encoded\n";
+   #   d::w "settings", "WriteFile:$_ $i\n";
     }
   }
-  close F;
+  close #F;
   return 1;
 }
 
 method PrintGroup($group) {
 
-  d::w "settings", "[$group]\n";
-    for my $i ( @{ $this->{list}{$group} } ) {
-      print  "$i=$this->{hash}{$group}{$i}\n";
+ # d::w "settings", "[$group]\n";
+    for  @( %!list{$group} ) ->  $i  {
+      print  "$i=%!hash{$group}{$i}\n";
     }
 
 }
 
 method SetDisk($disk)
 {
- $this->{disk}= $disk;
+ $!disk= $disk;
 }
 
 method Flush {
-  d::w "settings", "flush $this->{changed}\n";
-  if ( $this->{disk} and $this->{changed} ) { $this->WriteFile; }
-  $this->{changed} = 0;
+#  d::w "settings", "flush $!changed\n";
+  if ( $!disk and $!changed ) { self.WriteFile; }
+  $!changed = 0;
 }
 
-1;
+
