@@ -1,4 +1,4 @@
-# Ini::Stoage
+# Ini::Storage
 
 Read/write ini files and manipulate them in memory.
 Groups in function names refer to sections.
