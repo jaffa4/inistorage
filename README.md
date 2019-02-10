@@ -23,7 +23,8 @@ Key refers to "group/key" format.
 
 
 
-##functions
+## Functions
+
 	method new($filename,$isdisk)
 	method GetFilename 
 	method SetFilename($newfn) 
