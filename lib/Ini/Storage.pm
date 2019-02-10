@@ -447,12 +447,16 @@ method ReadFile() {
           my $decoded=$1;
           my $key=$0;
           #say "decoded $0 $1";
-           $decoded~~s:g/\\x0a/\x0a/;
+          $decoded~~s:g/\\x0a/\x0a/;
            $decoded~~s:g/\\x0d/\x0d/;
            $decoded~~s:g/\\\\/\\/;    
           %!hash{$currgroup}{$key} = $decoded;
-      #    d::w "settings", "$currgroup: $key $decoded\n";
-          push @( %!list{$currgroup} ), $key;
+          #    d::w "settings", "$currgroup: $key $decoded\n";
+          if %!list{$currgroup} ~~ Any {
+            %!list{$currgroup} = [$key];
+          } else {
+            push @( %!list{$currgroup} ), $key;
+          }
         }
       }
     }
@@ -480,7 +484,7 @@ method WriteFile {
    #   d::w "settings", "WriteFile:$_ $i\n";
     }
   }
-  close #F;
+  close $F;
   return 1;
 }
 
