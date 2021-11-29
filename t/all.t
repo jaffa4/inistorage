@@ -2,6 +2,7 @@ use v6;
 
 use Ini::Storage;
 use Test;
+use lib "../lib";
 plan *;
 
 my $o = Ini::Storage.new("storage_test333",False);
@@ -60,10 +61,12 @@ ok $o.CountEntries("g") == 1, "deleting entry";
 $o.Write("a/id",1);
 
 my $o2 = Ini::Storage.new("storage_test333",True);
-
+$o2.Write("g/no",7);
 
 ok $o2.Read("g/no",0)==7, "file read test";
-
+$o2.Write("g/text","d\\
+next
+");
 ok $o2.Read("g/text",0) eq "d\\
 next
 ", "file read test 2";
@@ -74,7 +77,7 @@ ok $o2.Read("g/no",0) eq "d\\
 next
 ", "Exchange text";
 
-
+$o2.SetArrayInGroup("record","a",["3","1","4","8","3"]);
 my @a = $o2.GetArrayInGroupK("record/a");
 
 
@@ -87,4 +90,4 @@ $o2.SetDisk(False);
 
 unlink $f;
 
-done;
+done-testing;
