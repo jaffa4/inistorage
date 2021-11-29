@@ -88,6 +88,6 @@ $o2.SetDisk(False);
 
 #say $o2.perl;
 
-unlink $f;
+unlink "storage_test333";
 
 done-testing;
