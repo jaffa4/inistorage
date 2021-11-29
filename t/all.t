@@ -49,8 +49,12 @@ $o.SetArrayInGroup("record","a",(3,1,4,8,3));
 $o.Flush;
 
 ok $f.IO ~~ :e, "file is saved";
+unlink $f;
+if ($f.IO ~~:e)
+{
+    warn "could not unlink $f for some reason, you need to do this, unlink is not perfect";
 
-
+}
 
 
 $o.DeleteEntry("g/no");
@@ -86,8 +90,10 @@ ok @a ~~ ["3","1","4","8","3"], "loading an array";
 
 $o2.SetDisk(False);
 
+
+
 #say $o2.perl;
 
-unlink "storage_test333";
+
 
 done-testing;
