@@ -25,33 +25,61 @@ Key refers to "group/key" format.
 
 ##functions
 	method new($filename,$isdisk)
+	
 	method GetFilename 
+	
 	method SetFilename($newfn) 
+	
 	method Read($key,$default) 
+	
 	method Exchange($key,$key2) 
+	
 	method GetEntryName($group,$no is copy)
+	
 	method Write($key,$value) 
+	
 	method Copy($obj) 
+	
 	method CountEntries($group) 
+	
 	method CopyGroup($obj,$group,$newgroupname?) 
+	
 	method DeleteEntry($key) 
+	
 	method RenameEntry($key,$keynew)
+	
 	method DeleteEntryFromArray($key)
+	
 	method GetLastArrayIndex($key)
+	
 	method DeleteGroup($group) 
+	
 	method GroupExists($group)
+	
 	method Exists($key) 
+	
 	method GetGroups
+	
 	method GetEntriesInGroup($group) 
+	
 	method FindIndexInArrayByValue($group,$arrayname,$value) 
+	
 	method FindAValueInRecordByKey($group,$arrayname,$value,$arrayname2) 
+	
 	method GetArrayInGroupK($key) 
+	
 	method GetArrayInGroupGE($group,$name) 
+	
 	method SetArrayInGroup ($group,$name,@arr) 
+	
 	method ReadFile()
+	
 	method WriteFile 
+	
 	method PrintGroup($group) 
+	
 	method SetDisk($disk)
+	
 	method Flush 
 
 
